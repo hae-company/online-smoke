@@ -35,31 +35,32 @@ function RegularCigarette3D() {
   const wasInhaling = useRef(false);
   const {
     landmarks, isInhaling, burnProgress, setBurnProgress,
-    puffCount, setPuffCount, setPhase,
+    puffCount, setPuffCount, setPhase, brand,
   } = useSmoking();
 
-  // Create cigarette profile using LatheGeometry for realistic round shape
+  const thick = brand.thickness;
+
   const filterGeo = useMemo(() => {
+    const r = 0.04 * thick;
     const pts = [];
-    // Rounded filter tip
     for (let i = 0; i <= 8; i++) {
       const t = (i / 8) * Math.PI * 0.5;
-      pts.push(new THREE.Vector2(Math.sin(t) * 0.04, -0.12 + Math.cos(t) * 0.02));
+      pts.push(new THREE.Vector2(Math.sin(t) * r, -0.12 + Math.cos(t) * 0.02));
     }
-    // Filter body
-    pts.push(new THREE.Vector2(0.04, 0.0));
-    pts.push(new THREE.Vector2(0.04, 0.12));
+    pts.push(new THREE.Vector2(r, 0.0));
+    pts.push(new THREE.Vector2(r, 0.12));
     return new THREE.LatheGeometry(pts, 24);
-  }, []);
+  }, [thick]);
 
   const paperGeo = useMemo(() => {
+    const r = 0.037 * thick;
     const pts = [
-      new THREE.Vector2(0.037, 0),
-      new THREE.Vector2(0.037, 0.55),
-      new THREE.Vector2(0.035, 0.56), // slight taper at tip
+      new THREE.Vector2(r, 0),
+      new THREE.Vector2(r, 0.55),
+      new THREE.Vector2(r - 0.002, 0.56),
     ];
     return new THREE.LatheGeometry(pts, 24);
-  }, []);
+  }, [thick]);
 
   useFrame(() => {
     if (!groupRef.current || !landmarks) return;
@@ -96,24 +97,24 @@ function RegularCigarette3D() {
       <group rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
         {/* Filter (mouthpiece end, at origin) */}
         <mesh geometry={filterGeo}>
-          <meshStandardMaterial color="#c8924a" roughness={0.85} metalness={0.05} />
+          <meshStandardMaterial color={brand.filterColor} roughness={0.85} metalness={0.05} />
         </mesh>
 
-        {/* Gold band */}
+        {/* Brand accent band */}
         <mesh position={[0, 0.13, 0]}>
-          <cylinderGeometry args={[0.041, 0.041, 0.012, 24]} />
-          <meshStandardMaterial color="#c9a84c" metalness={0.5} roughness={0.4} />
+          <cylinderGeometry args={[0.041 * thick, 0.041 * thick, 0.012, 24]} />
+          <meshStandardMaterial color={brand.packAccent} metalness={0.5} roughness={0.4} />
         </mesh>
 
         {/* Paper tube (scales down as it burns) */}
         <group position={[0, 0.14, 0]} scale={[1, remaining, 1]}>
           <mesh geometry={paperGeo}>
-            <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+            <meshStandardMaterial color={brand.paperColor} roughness={0.7} />
           </mesh>
-          {/* Brand text line */}
-          <mesh position={[0.038, 0.15, 0]} rotation={[0, 0, 0]}>
+          {/* Brand color accent line */}
+          <mesh position={[0.038 * thick, 0.15, 0]}>
             <boxGeometry args={[0.002, 0.08, 0.02]} />
-            <meshStandardMaterial color="#ddd0bc" />
+            <meshStandardMaterial color={brand.packColor} />
           </mesh>
         </group>
 
@@ -315,7 +316,7 @@ function AshtrayScene() {
 // PACK — cigarette pack appears, waiting for grab
 // ============================================
 function PackScene() {
-  const { setPhase, landmarks } = useSmoking();
+  const { setPhase, landmarks, brand } = useSmoking();
   const [packOpen, setPackOpen] = useState(false);
   const mouthClosedTimer = useRef(0);
 
@@ -346,12 +347,17 @@ function PackScene() {
         {/* Pack body */}
         <mesh>
           <boxGeometry args={[1.2, 1.6, 0.5]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
+          <meshStandardMaterial color={brand.packColor} roughness={0.6} />
         </mesh>
-        {/* Pack top (open) */}
+        {/* Pack accent stripe */}
+        <mesh position={[0, -0.3, 0.251]}>
+          <boxGeometry args={[1.18, 0.4, 0.01]} />
+          <meshStandardMaterial color={brand.packAccent} metalness={0.3} roughness={0.5} />
+        </mesh>
+        {/* Pack top (open, lighter shade) */}
         <mesh position={[0, 0.85, -0.1]} rotation={[-0.4, 0, 0]}>
           <boxGeometry args={[1.18, 0.5, 0.48]} />
-          <meshStandardMaterial color="#dd3333" roughness={0.6} />
+          <meshStandardMaterial color={brand.packColor} roughness={0.5} />
         </mesh>
         {/* Foil inner */}
         <mesh position={[0, 0.5, 0]}>
@@ -361,18 +367,18 @@ function PackScene() {
         {/* Cigarettes visible inside */}
         {[...Array(3)].map((_, i) => (
           <mesh key={i} position={[(i - 1) * 0.2, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.4, 12]} />
-            <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+            <cylinderGeometry args={[0.04 * brand.thickness, 0.04 * brand.thickness, 0.4, 12]} />
+            <meshStandardMaterial color={brand.paperColor} roughness={0.7} />
           </mesh>
         ))}
         {/* One cigarette sticking up (ready to grab) */}
         <mesh position={[0, 1.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.04, 0.04, 0.5, 12]} />
-          <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+          <cylinderGeometry args={[0.04 * brand.thickness, 0.04 * brand.thickness, 0.5, 12]} />
+          <meshStandardMaterial color={brand.paperColor} roughness={0.7} />
         </mesh>
         <mesh position={[0, 1.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.042, 0.042, 0.2, 12]} />
-          <meshStandardMaterial color="#c8924a" roughness={0.85} />
+          <cylinderGeometry args={[0.042 * brand.thickness, 0.042 * brand.thickness, 0.2, 12]} />
+          <meshStandardMaterial color={brand.filterColor} roughness={0.85} />
         </mesh>
       </group>
     </group>

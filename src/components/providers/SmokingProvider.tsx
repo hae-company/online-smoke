@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useRef, type ReactNode } from "react";
-import type { CigaretteType, SmokingPhase } from "@/lib/constants";
+import type { CigaretteType, SmokingPhase, BrandConfig } from "@/lib/constants";
+import { BRANDS } from "@/lib/constants";
 import type { FaceLandmark } from "@/lib/landmarks";
 
 interface SmokingState {
@@ -16,6 +17,8 @@ interface SmokingState {
 
   cigaretteType: CigaretteType;
   setCigaretteType: (t: CigaretteType) => void;
+  brand: BrandConfig;
+  setBrand: (b: BrandConfig) => void;
   burnProgress: number;
   setBurnProgress: (p: number) => void;
   chainCount: number;
@@ -38,6 +41,7 @@ export function SmokingProvider({ children }: { children: ReactNode }) {
   const [landmarks, setLandmarks] = useState<FaceLandmark[] | null>(null);
   const [isInhaling, setIsInhaling] = useState(false);
   const [cigaretteType, setCigaretteType] = useState<CigaretteType>("regular");
+  const [brand, setBrand] = useState<BrandConfig>(BRANDS[0]);
   const [burnProgress, setBurnProgress] = useState(0);
   const [chainCount, setChainCount] = useState(0);
   const [puffCount, setPuffCount] = useState(0);
@@ -50,6 +54,7 @@ export function SmokingProvider({ children }: { children: ReactNode }) {
         webcamReady, setWebcamReady, videoRef,
         landmarks, setLandmarks, isInhaling, setIsInhaling,
         cigaretteType, setCigaretteType,
+        brand, setBrand,
         burnProgress, setBurnProgress,
         chainCount, setChainCount,
         puffCount, setPuffCount,
