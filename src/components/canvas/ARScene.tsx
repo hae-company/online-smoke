@@ -75,8 +75,10 @@ export default function ARScene() {
         gl={{ alpha: true, antialias: true }}
         style={{ position: "absolute", inset: 0 }}
       >
-        <ambientLight intensity={0.8} />
-        <pointLight position={[2, 2, 5]} intensity={1} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[3, 3, 5]} intensity={1.5} castShadow />
+        <pointLight position={[-2, 1, 4]} intensity={0.8} color="#ffddaa" />
+        <pointLight position={[0, -2, 3]} intensity={0.3} color="#aaccff" />
         <Cigarette />
       </Canvas>
     </div>

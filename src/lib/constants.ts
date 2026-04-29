@@ -1,15 +1,25 @@
 export type CigaretteType = "regular" | "ecig";
 
+// Phase flow: smoking → finished → pack/refill → grabbing → smoking
+export type SmokingPhase = "smoking" | "finished" | "pack" | "grabbing";
+
 export const INHALE_THRESHOLD = 0.08;
-export const CIGARETTE_BURN_SPEED = 0.003; // per frame while inhaling
-export const CIGARETTE_IDLE_BURN = 0.0002; // very slow idle burn
-export const SMOKE_PARTICLE_COUNT = 30;
+export const PUFFS_PER_CIGARETTE = 10;
+export const PUFFS_PER_ECIG_CHARGE = 20;
+
+// Burn per puff: 1/10 = 0.1 per puff, spread over ~60 frames of inhaling
+export const CIGARETTE_BURN_PER_FRAME = 1 / (PUFFS_PER_CIGARETTE * 60);
+export const ECIG_BURN_PER_FRAME = 1 / (PUFFS_PER_ECIG_CHARGE * 60);
+export const IDLE_BURN = 0.00005; // barely burns when idle
+
+// Pinch detection: thumb tip to index tip distance threshold
+export const PINCH_THRESHOLD = 0.06;
 
 export const CIGARETTE_CONFIG = {
   regular: {
     label: "일반담배",
     filterColor: "#c4883c",
-    paperColor: "#f5f0e8",
+    paperColor: "#f0ebe0",
     emberColor: "#ff4400",
     smokeColor: "#cccccc",
   },

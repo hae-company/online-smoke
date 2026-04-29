@@ -1,30 +1,31 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
-import type { CigaretteType } from "@/lib/constants";
+import { createContext, useContext, useState, useRef, type ReactNode } from "react";
+import type { CigaretteType, SmokingPhase } from "@/lib/constants";
 import type { FaceLandmark } from "@/lib/landmarks";
 
 interface SmokingState {
-  // Webcam
   webcamReady: boolean;
   setWebcamReady: (v: boolean) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 
-  // Face detection
   landmarks: FaceLandmark[] | null;
   setLandmarks: (l: FaceLandmark[] | null) => void;
   isInhaling: boolean;
   setIsInhaling: (v: boolean) => void;
 
-  // Cigarette
   cigaretteType: CigaretteType;
   setCigaretteType: (t: CigaretteType) => void;
-  burnProgress: number; // 0 = fresh, 1 = fully burned
+  burnProgress: number;
   setBurnProgress: (p: number) => void;
   chainCount: number;
   setChainCount: (c: number) => void;
+  puffCount: number;
+  setPuffCount: (n: number) => void;
 
-  // Timer
+  phase: SmokingPhase;
+  setPhase: (p: SmokingPhase) => void;
+
   startTime: number | null;
   setStartTime: (t: number | null) => void;
 }
@@ -39,26 +40,21 @@ export function SmokingProvider({ children }: { children: ReactNode }) {
   const [cigaretteType, setCigaretteType] = useState<CigaretteType>("regular");
   const [burnProgress, setBurnProgress] = useState(0);
   const [chainCount, setChainCount] = useState(0);
+  const [puffCount, setPuffCount] = useState(0);
+  const [phase, setPhase] = useState<SmokingPhase>("smoking");
   const [startTime, setStartTime] = useState<number | null>(null);
 
   return (
     <SmokingContext.Provider
       value={{
-        webcamReady,
-        setWebcamReady,
-        videoRef,
-        landmarks,
-        setLandmarks,
-        isInhaling,
-        setIsInhaling,
-        cigaretteType,
-        setCigaretteType,
-        burnProgress,
-        setBurnProgress,
-        chainCount,
-        setChainCount,
-        startTime,
-        setStartTime,
+        webcamReady, setWebcamReady, videoRef,
+        landmarks, setLandmarks, isInhaling, setIsInhaling,
+        cigaretteType, setCigaretteType,
+        burnProgress, setBurnProgress,
+        chainCount, setChainCount,
+        puffCount, setPuffCount,
+        phase, setPhase,
+        startTime, setStartTime,
       }}
     >
       {children}

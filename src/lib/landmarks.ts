@@ -4,6 +4,11 @@ export const LOWER_LIP_BOTTOM = 14;
 export const MOUTH_LEFT = 61;
 export const MOUTH_RIGHT = 291;
 
+// Hand landmark indices (if using hand detection, but we use face mesh only)
+// We'll detect pinch using face landmarks near chin + simple gesture
+// Actually MediaPipe face landmarker doesn't track hands.
+// So we detect "grab" via: user closes mouth tightly (MAR very low) + holds for 1 second
+
 // Mouth center (for cigarette positioning)
 export const MOUTH_CENTER_TOP = 0; // nose tip as reference
 export const LIPS_CENTER = 13;

@@ -1,268 +1,492 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSmoking } from "../providers/SmokingProvider";
-import { CIGARETTE_CONFIG, CIGARETTE_BURN_SPEED, CIGARETTE_IDLE_BURN } from "@/lib/constants";
-import { getMouthPosition } from "@/lib/landmarks";
+import {
+  CIGARETTE_BURN_PER_FRAME,
+  ECIG_BURN_PER_FRAME,
+  IDLE_BURN,
+} from "@/lib/constants";
+import { getMouthPosition, calculateMAR } from "@/lib/landmarks";
 
 export default function Cigarette() {
-  const { cigaretteType } = useSmoking();
-  if (cigaretteType === "ecig") return <ECigarette />;
-  return <RegularCigarette />;
-}
-
-function RegularCigarette() {
-  const groupRef = useRef<THREE.Group>(null);
-  const emberRef = useRef<THREE.Mesh>(null);
-  const ashRef = useRef<THREE.Mesh>(null);
-  const paperRef = useRef<THREE.Group>(null);
-  const { landmarks, isInhaling, burnProgress, setBurnProgress, chainCount, setChainCount, setStartTime } =
-    useSmoking();
-
-  useFrame(() => {
-    if (!groupRef.current || !landmarks) return;
-
-    const mouth = getMouthPosition(landmarks);
-
-    // Mirrored webcam: flip x. Position in 3D space matching video coords.
-    const x = -(mouth.x - 0.5) * 10;
-    const y = -(mouth.y - 0.5) * 7.5;
-
-    // Place cigarette at lips, sticking outward
-    groupRef.current.position.set(x, y, 0.5);
-    groupRef.current.rotation.z = mouth.angle + 0.1; // slight natural droop
-
-    // Burn
-    const burnRate = isInhaling ? CIGARETTE_BURN_SPEED : CIGARETTE_IDLE_BURN;
-    const newBurn = Math.min(1, burnProgress + burnRate);
-    setBurnProgress(newBurn);
-
-    // Paper + tobacco shrinks from the tip
-    if (paperRef.current) {
-      const remaining = 1 - newBurn;
-      paperRef.current.scale.x = Math.max(0.01, remaining);
-      // Shift so the filter end stays at mouth, tip recedes
-      paperRef.current.position.x = -0.55 * remaining;
-    }
-
-    // Ash builds up at the burning tip
-    if (ashRef.current) {
-      const ashLength = Math.min(newBurn * 0.3, 0.15);
-      ashRef.current.scale.y = ashLength / 0.05;
-      ashRef.current.position.x = -0.55 * (1 - newBurn) - 0.55 - ashLength * 0.5;
-      ashRef.current.visible = newBurn > 0.05;
-    }
-
-    // Ember position follows the burning tip
-    if (emberRef.current) {
-      emberRef.current.position.x = -0.55 * (1 - newBurn) - 0.55;
-      const mat = emberRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = isInhaling ? 5 : 1.2;
-      // Pulsing glow when inhaling
-      if (isInhaling) {
-        const pulse = Math.sin(Date.now() * 0.01) * 0.3 + 0.7;
-        emberRef.current.scale.setScalar(1 + pulse * 0.2);
-      } else {
-        emberRef.current.scale.setScalar(1);
-      }
-    }
-
-    // Chain smoking
-    if (newBurn >= 1) {
-      setBurnProgress(0);
-      setChainCount(chainCount + 1);
-      setStartTime(Date.now());
-    }
-  });
+  const { cigaretteType, phase } = useSmoking();
 
   return (
-    <group ref={groupRef}>
-      {/* === FILTER === */}
-      {/* Main filter body - cork-colored with texture feel */}
-      <mesh position={[0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.038, 0.04, 0.25, 16]} />
-        <meshStandardMaterial color="#c8924a" roughness={0.9} />
-      </mesh>
-      {/* Filter ring (gold band where filter meets paper) */}
-      <mesh position={[0.02, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.041, 0.041, 0.015, 16]} />
-        <meshStandardMaterial color="#d4a54a" metalness={0.4} roughness={0.5} />
-      </mesh>
-      {/* Second gold ring */}
-      <mesh position={[-0.005, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.041, 0.041, 0.008, 16]} />
-        <meshStandardMaterial color="#d4a54a" metalness={0.4} roughness={0.5} />
-      </mesh>
-
-      {/* === PAPER + TOBACCO (shrinks as it burns) === */}
-      <group ref={paperRef} position={[-0.55, 0, 0]}>
-        {/* White cigarette paper */}
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.037, 0.038, 1.1, 16]} />
-          <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
-        </mesh>
-        {/* Subtle seam line along the paper */}
-        <mesh position={[0, 0.038, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.001, 0.001, 1.1, 4]} />
-          <meshStandardMaterial color="#ddd5c5" />
-        </mesh>
-      </group>
-
-      {/* === EMBER (burning tip) === */}
-      <mesh ref={emberRef} position={[-1.1, 0, 0]}>
-        <sphereGeometry args={[0.042, 12, 12]} />
-        <meshStandardMaterial
-          color="#ff3300"
-          emissive="#ff4400"
-          emissiveIntensity={1.5}
-          roughness={0.3}
-        />
-      </mesh>
-      {/* Ember ring (glowing edge around the tip) */}
-      <mesh position={[-1.08, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.04, 0.038, 0.03, 16]} />
-        <meshStandardMaterial
-          color="#1a1a1a"
-          emissive="#aa2200"
-          emissiveIntensity={0.5}
-          roughness={1}
-        />
-      </mesh>
-
-      {/* === ASH === */}
-      <mesh ref={ashRef} position={[-1.15, 0, 0]} rotation={[0, 0, Math.PI / 2]} visible={false}>
-        <cylinderGeometry args={[0.036, 0.034, 0.05, 12]} />
-        <meshStandardMaterial color="#888" roughness={1} />
-      </mesh>
-
-      {/* === SMOKE === */}
-      <SmokeParticles />
+    <group>
+      {phase === "smoking" && (
+        cigaretteType === "ecig" ? <ECigarette3D /> : <RegularCigarette3D />
+      )}
+      {phase === "finished" && <AshtrayScene />}
+      {(phase === "pack" || phase === "grabbing") && (
+        cigaretteType === "ecig" ? <RefillScene /> : <PackScene />
+      )}
     </group>
   );
 }
 
-function ECigarette() {
+// ============================================
+// REGULAR CIGARETTE — full 3D with LatheGeometry
+// ============================================
+function RegularCigarette3D() {
   const groupRef = useRef<THREE.Group>(null);
-  const ledRef = useRef<THREE.Mesh>(null);
-  const { landmarks, isInhaling, burnProgress, setBurnProgress, chainCount, setChainCount, setStartTime } =
-    useSmoking();
-  const config = CIGARETTE_CONFIG.ecig;
+  const wasInhaling = useRef(false);
+  const {
+    landmarks, isInhaling, burnProgress, setBurnProgress,
+    puffCount, setPuffCount, setPhase,
+  } = useSmoking();
 
-  useFrame(() => {
-    if (!groupRef.current || !landmarks) return;
-
-    const mouth = getMouthPosition(landmarks);
-    const x = -(mouth.x - 0.5) * 10;
-    const y = -(mouth.y - 0.5) * 7.5;
-
-    groupRef.current.position.set(x, y, 0.5);
-    groupRef.current.rotation.z = mouth.angle + 0.08;
-
-    const burnRate = isInhaling ? CIGARETTE_BURN_SPEED : CIGARETTE_IDLE_BURN;
-    const newBurn = Math.min(1, burnProgress + burnRate);
-    setBurnProgress(newBurn);
-
-    if (ledRef.current) {
-      const mat = ledRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = isInhaling ? 5 : 0.8;
+  // Create cigarette profile using LatheGeometry for realistic round shape
+  const filterGeo = useMemo(() => {
+    const pts = [];
+    // Rounded filter tip
+    for (let i = 0; i <= 8; i++) {
+      const t = (i / 8) * Math.PI * 0.5;
+      pts.push(new THREE.Vector2(Math.sin(t) * 0.04, -0.12 + Math.cos(t) * 0.02));
     }
+    // Filter body
+    pts.push(new THREE.Vector2(0.04, 0.0));
+    pts.push(new THREE.Vector2(0.04, 0.12));
+    return new THREE.LatheGeometry(pts, 24);
+  }, []);
 
-    if (newBurn >= 1) {
-      setBurnProgress(0);
-      setChainCount(chainCount + 1);
-      setStartTime(Date.now());
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      {/* Main body - sleek dark rectangle */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <boxGeometry args={[0.1, 1.4, 0.08]} />
-        <meshStandardMaterial color={config.bodyColor} metalness={0.7} roughness={0.2} />
-      </mesh>
-      {/* Mouthpiece */}
-      <mesh position={[0.6, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.035, 0.04, 0.25, 12]} />
-        <meshStandardMaterial color="#555" metalness={0.3} roughness={0.4} />
-      </mesh>
-      {/* LED */}
-      <mesh ref={ledRef} position={[-0.72, 0, 0.045]}>
-        <sphereGeometry args={[0.015, 8, 8]} />
-        <meshStandardMaterial
-          color={config.ledColor}
-          emissive={config.ledColor}
-          emissiveIntensity={1}
-        />
-      </mesh>
-      {isInhaling && <VaporParticles />}
-    </group>
-  );
-}
-
-function SmokeParticles() {
-  const { isInhaling, burnProgress } = useSmoking();
-  const particlesRef = useRef<THREE.Points>(null);
-  const positions = useRef(new Float32Array(40 * 3));
-  const velocities = useRef(new Float32Array(40 * 3));
-  const ages = useRef(new Float32Array(40));
-
-  useMemo(() => {
-    for (let i = 0; i < 40; i++) {
-      positions.current[i * 3] = 0;
-      positions.current[i * 3 + 1] = 0;
-      positions.current[i * 3 + 2] = 0;
-      ages.current[i] = Math.random() * 2;
-    }
+  const paperGeo = useMemo(() => {
+    const pts = [
+      new THREE.Vector2(0.037, 0),
+      new THREE.Vector2(0.037, 0.55),
+      new THREE.Vector2(0.035, 0.56), // slight taper at tip
+    ];
+    return new THREE.LatheGeometry(pts, 24);
   }, []);
 
   useFrame(() => {
-    if (!particlesRef.current) return;
-    const pos = positions.current;
-    const vel = velocities.current;
-    const age = ages.current;
+    if (!groupRef.current || !landmarks) return;
 
-    for (let i = 0; i < 40; i++) {
-      age[i] += 0.016;
+    const mouth = getMouthPosition(landmarks);
+    const x = -(mouth.x - 0.5) * 10;
+    const y = -(mouth.y - 0.5) * 7.5;
 
-      if (age[i] > 2 || pos[i * 3 + 1] > 2) {
-        // Reset at ember tip
-        const tipX = -0.55 * (1 - burnProgress) - 0.55;
-        pos[i * 3] = tipX + (Math.random() - 0.5) * 0.05;
-        pos[i * 3 + 1] = 0.05;
-        pos[i * 3 + 2] = (Math.random() - 0.5) * 0.05;
-        vel[i * 3] = (Math.random() - 0.5) * 0.008;
-        vel[i * 3 + 1] = 0.008 + Math.random() * 0.015;
-        vel[i * 3 + 2] = (Math.random() - 0.5) * 0.008;
-        age[i] = 0;
-      }
+    groupRef.current.position.set(x, y, 0.5);
+    // Cigarette points outward from mouth, rotated along mouth angle
+    groupRef.current.rotation.set(0, 0, mouth.angle + 0.08);
 
-      // Wispy upward drift with slight wandering
-      vel[i * 3] += (Math.random() - 0.5) * 0.001;
-      vel[i * 3 + 1] *= 0.998;
-      pos[i * 3] += vel[i * 3];
-      pos[i * 3 + 1] += vel[i * 3 + 1];
-      pos[i * 3 + 2] += vel[i * 3 + 2];
+    // Count puffs: detect inhale start (transition from not inhaling to inhaling)
+    if (isInhaling && !wasInhaling.current) {
+      setPuffCount(puffCount + 1);
     }
+    wasInhaling.current = isInhaling;
 
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    // Burn
+    const burnRate = isInhaling ? CIGARETTE_BURN_PER_FRAME : IDLE_BURN;
+    const newBurn = Math.min(1, burnProgress + burnRate);
+    setBurnProgress(newBurn);
+
+    if (newBurn >= 1) {
+      setPhase("finished");
+    }
   });
 
-  // Always show idle smoke, more when inhaling
-  const opacity = isInhaling ? 0.5 : 0.2;
+  const remaining = 1 - burnProgress;
 
   return (
-    <points ref={particlesRef}>
+    <group ref={groupRef}>
+      {/* Whole cigarette rotated so it sticks out horizontally from mouth */}
+      <group rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
+        {/* Filter (mouthpiece end, at origin) */}
+        <mesh geometry={filterGeo}>
+          <meshStandardMaterial color="#c8924a" roughness={0.85} metalness={0.05} />
+        </mesh>
+
+        {/* Gold band */}
+        <mesh position={[0, 0.13, 0]}>
+          <cylinderGeometry args={[0.041, 0.041, 0.012, 24]} />
+          <meshStandardMaterial color="#c9a84c" metalness={0.5} roughness={0.4} />
+        </mesh>
+
+        {/* Paper tube (scales down as it burns) */}
+        <group position={[0, 0.14, 0]} scale={[1, remaining, 1]}>
+          <mesh geometry={paperGeo}>
+            <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+          </mesh>
+          {/* Brand text line */}
+          <mesh position={[0.038, 0.15, 0]} rotation={[0, 0, 0]}>
+            <boxGeometry args={[0.002, 0.08, 0.02]} />
+            <meshStandardMaterial color="#ddd0bc" />
+          </mesh>
+        </group>
+
+        {/* Ember tip */}
+        <group position={[0, 0.14 + 0.56 * remaining, 0]}>
+          {/* Hot ember core */}
+          <mesh>
+            <sphereGeometry args={[0.038, 16, 16]} />
+            <meshStandardMaterial
+              color="#ff2200"
+              emissive={isInhaling ? "#ff6600" : "#cc3300"}
+              emissiveIntensity={isInhaling ? 4 : 1}
+            />
+          </mesh>
+          {/* Charred ring */}
+          <mesh position={[0, -0.01, 0]}>
+            <cylinderGeometry args={[0.039, 0.037, 0.025, 16]} />
+            <meshStandardMaterial color="#222" roughness={1} />
+          </mesh>
+          {/* Ash buildup */}
+          {burnProgress > 0.1 && (
+            <mesh position={[0, 0.03, 0]}>
+              <cylinderGeometry args={[0.033, 0.03, Math.min(burnProgress * 0.15, 0.06), 12]} />
+              <meshStandardMaterial color="#999" roughness={1} />
+            </mesh>
+          )}
+        </group>
+      </group>
+
+      <SmokeParticles3D burnY={0.14 + 0.56 * remaining} />
+    </group>
+  );
+}
+
+// ============================================
+// E-CIGARETTE — sleek 3D stick
+// ============================================
+function ECigarette3D() {
+  const groupRef = useRef<THREE.Group>(null);
+  const wasInhaling = useRef(false);
+  const {
+    landmarks, isInhaling, burnProgress, setBurnProgress,
+    puffCount, setPuffCount, setPhase,
+  } = useSmoking();
+
+  useFrame(() => {
+    if (!groupRef.current || !landmarks) return;
+
+    const mouth = getMouthPosition(landmarks);
+    const x = -(mouth.x - 0.5) * 10;
+    const y = -(mouth.y - 0.5) * 7.5;
+
+    groupRef.current.position.set(x, y, 0.5);
+    groupRef.current.rotation.set(0, 0, mouth.angle + 0.05);
+
+    if (isInhaling && !wasInhaling.current) {
+      setPuffCount(puffCount + 1);
+    }
+    wasInhaling.current = isInhaling;
+
+    const burnRate = isInhaling ? ECIG_BURN_PER_FRAME : 0;
+    const newBurn = Math.min(1, burnProgress + burnRate);
+    setBurnProgress(newBurn);
+
+    if (newBurn >= 1) {
+      setPhase("finished");
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <group rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
+        {/* Mouthpiece */}
+        <mesh position={[0, -0.05, 0]}>
+          <cylinderGeometry args={[0.03, 0.035, 0.15, 16]} />
+          <meshStandardMaterial color="#444" metalness={0.4} roughness={0.3} />
+        </mesh>
+        {/* Main body */}
+        <mesh position={[0, 0.35, 0]}>
+          <boxGeometry args={[0.09, 0.65, 0.06]} />
+          <meshStandardMaterial color="#1a1a1a" metalness={0.7} roughness={0.15} />
+        </mesh>
+        {/* Chrome accent ring */}
+        <mesh position={[0, 0.03, 0]}>
+          <cylinderGeometry args={[0.048, 0.048, 0.01, 16]} />
+          <meshStandardMaterial color="#ccc" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* LED */}
+        <mesh position={[0, 0.67, 0.035]}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+          <meshStandardMaterial
+            color="#00aaff"
+            emissive="#00aaff"
+            emissiveIntensity={isInhaling ? 6 : 1}
+          />
+        </mesh>
+        {/* Battery indicator bar */}
+        <mesh position={[0, 0.5, 0.031]}>
+          <boxGeometry args={[0.04, 0.15 * (1 - burnProgress), 0.002]} />
+          <meshStandardMaterial
+            color={burnProgress > 0.8 ? "#ff3333" : "#00ff88"}
+            emissive={burnProgress > 0.8 ? "#ff3333" : "#00ff88"}
+            emissiveIntensity={0.5}
+          />
+        </mesh>
+      </group>
+
+      {isInhaling && <VaporParticles3D />}
+    </group>
+  );
+}
+
+// ============================================
+// ASHTRAY — finished cigarette goes here
+// ============================================
+function AshtrayScene() {
+  const { chainCount, setChainCount, setBurnProgress, setPuffCount, setPhase, setStartTime, landmarks } = useSmoking();
+  const [animProgress, setAnimProgress] = useState(0);
+  const mouthClosedTimer = useRef(0);
+
+  useFrame(() => {
+    // Animate butt dropping into ashtray
+    if (animProgress < 1) {
+      setAnimProgress((p) => Math.min(1, p + 0.02));
+    }
+
+    // Detect "grab" gesture: mouth closed tight for 1 second
+    if (landmarks) {
+      const mar = calculateMAR(landmarks);
+      if (mar < 0.03) {
+        mouthClosedTimer.current += 1 / 60;
+        if (mouthClosedTimer.current > 1) {
+          // Transition to pack
+          setChainCount(chainCount + 1);
+          setBurnProgress(0);
+          setPuffCount(0);
+          setStartTime(Date.now());
+          setPhase("pack");
+          mouthClosedTimer.current = 0;
+        }
+      } else {
+        mouthClosedTimer.current = 0;
+      }
+    }
+  });
+
+  const buttY = THREE.MathUtils.lerp(2, -1.5, animProgress);
+  const buttRotZ = animProgress * Math.PI * 0.3;
+
+  return (
+    <group position={[0, -1, 0]}>
+      {/* Ashtray */}
+      <mesh position={[0, -1.8, 0]}>
+        <cylinderGeometry args={[0.8, 0.6, 0.2, 24]} />
+        <meshStandardMaterial color="#555" metalness={0.3} roughness={0.7} />
+      </mesh>
+      {/* Ashtray inner (dark) */}
+      <mesh position={[0, -1.7, 0]}>
+        <cylinderGeometry args={[0.7, 0.5, 0.1, 24]} />
+        <meshStandardMaterial color="#222" roughness={1} />
+      </mesh>
+
+      {/* Falling cigarette butt */}
+      <group position={[0.1, buttY, 0]} rotation={[0, 0, buttRotZ]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.035, 0.04, 0.2, 12]} />
+          <meshStandardMaterial color="#c8924a" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.03, 0.033, 0.04, 12]} />
+          <meshStandardMaterial color="#333" roughness={1} />
+        </mesh>
+      </group>
+
+      {/* Previous butts in ashtray */}
+      {Array.from({ length: Math.min(chainCount, 5) }).map((_, i) => (
+        <mesh
+          key={i}
+          position={[(i - 2) * 0.15, -1.65, (i % 2) * 0.1 - 0.05]}
+          rotation={[Math.PI / 2, i * 0.7, i * 0.5]}
+        >
+          <cylinderGeometry args={[0.025, 0.03, 0.18, 8]} />
+          <meshStandardMaterial color="#b08040" roughness={0.9} />
+        </mesh>
+      ))}
+
+      {/* Instruction text indicator */}
+      {animProgress >= 1 && (
+        <mesh position={[0, 0.5, 0]}>
+          <planeGeometry args={[3, 0.3]} />
+          <meshBasicMaterial color="#000" transparent opacity={0} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+// ============================================
+// PACK — cigarette pack appears, waiting for grab
+// ============================================
+function PackScene() {
+  const { setPhase, landmarks } = useSmoking();
+  const [packOpen, setPackOpen] = useState(false);
+  const mouthClosedTimer = useRef(0);
+
+  useFrame(() => {
+    if (!packOpen) {
+      setPackOpen(true);
+    }
+
+    // Detect grab: mouth open (inhale gesture) to pick up
+    if (landmarks) {
+      const mar = calculateMAR(landmarks);
+      if (mar > 0.1) {
+        mouthClosedTimer.current += 1 / 60;
+        if (mouthClosedTimer.current > 0.5) {
+          setPhase("smoking");
+          mouthClosedTimer.current = 0;
+        }
+      } else {
+        mouthClosedTimer.current = 0;
+      }
+    }
+  });
+
+  return (
+    <group position={[0, -0.5, 0]}>
+      {/* Cigarette pack - box shape */}
+      <group>
+        {/* Pack body */}
+        <mesh>
+          <boxGeometry args={[1.2, 1.6, 0.5]} />
+          <meshStandardMaterial color="#cc2222" roughness={0.6} />
+        </mesh>
+        {/* Pack top (open) */}
+        <mesh position={[0, 0.85, -0.1]} rotation={[-0.4, 0, 0]}>
+          <boxGeometry args={[1.18, 0.5, 0.48]} />
+          <meshStandardMaterial color="#dd3333" roughness={0.6} />
+        </mesh>
+        {/* Foil inner */}
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[1.1, 0.6, 0.4]} />
+          <meshStandardMaterial color="#ddd" metalness={0.6} roughness={0.3} />
+        </mesh>
+        {/* Cigarettes visible inside */}
+        {[...Array(3)].map((_, i) => (
+          <mesh key={i} position={[(i - 1) * 0.2, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.4, 12]} />
+            <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+          </mesh>
+        ))}
+        {/* One cigarette sticking up (ready to grab) */}
+        <mesh position={[0, 1.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.5, 12]} />
+          <meshStandardMaterial color="#f0ebe0" roughness={0.7} />
+        </mesh>
+        <mesh position={[0, 1.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.042, 0.042, 0.2, 12]} />
+          <meshStandardMaterial color="#c8924a" roughness={0.85} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// ============================================
+// REFILL — e-cig refill animation
+// ============================================
+function RefillScene() {
+  const { setPhase, landmarks } = useSmoking();
+  const mouthClosedTimer = useRef(0);
+  const [fillProgress, setFillProgress] = useState(0);
+
+  useFrame(() => {
+    // Auto-fill animation
+    if (fillProgress < 1) {
+      setFillProgress((p) => Math.min(1, p + 0.008));
+    }
+
+    // Detect grab to continue
+    if (fillProgress >= 1 && landmarks) {
+      const mar = calculateMAR(landmarks);
+      if (mar > 0.1) {
+        mouthClosedTimer.current += 1 / 60;
+        if (mouthClosedTimer.current > 0.5) {
+          setPhase("smoking");
+          mouthClosedTimer.current = 0;
+        }
+      } else {
+        mouthClosedTimer.current = 0;
+      }
+    }
+  });
+
+  return (
+    <group position={[0, -0.3, 0]}>
+      {/* E-cig body */}
+      <mesh>
+        <boxGeometry args={[0.4, 1.8, 0.3]} />
+        <meshStandardMaterial color="#1a1a1a" metalness={0.7} roughness={0.15} />
+      </mesh>
+      {/* Liquid bottle */}
+      <mesh position={[0.6, 0.3, 0]}>
+        <cylinderGeometry args={[0.15, 0.1, 0.8, 12]} />
+        <meshStandardMaterial color="#88ccff" transparent opacity={0.7} roughness={0.2} />
+      </mesh>
+      {/* Liquid drip */}
+      <mesh position={[0.3, 0.1, 0]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color="#66aaee" transparent opacity={0.8} />
+      </mesh>
+      {/* Fill progress bar */}
+      <mesh position={[-0.0, -0.3 + fillProgress * 0.6, 0.16]}>
+        <boxGeometry args={[0.2, fillProgress * 1.2, 0.01]} />
+        <meshStandardMaterial
+          color="#00ff88"
+          emissive="#00ff88"
+          emissiveIntensity={0.5}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+// ============================================
+// SMOKE PARTICLES (3D positioned)
+// ============================================
+function SmokeParticles3D({ burnY }: { burnY: number }) {
+  const { isInhaling, burnProgress } = useSmoking();
+  const ref = useRef<THREE.Points>(null);
+  const pos = useRef(new Float32Array(50 * 3));
+  const vel = useRef(new Float32Array(50 * 3));
+  const age = useRef(new Float32Array(50));
+
+  useMemo(() => {
+    for (let i = 0; i < 50; i++) age.current[i] = Math.random() * 3;
+  }, []);
+
+  useFrame(() => {
+    if (!ref.current) return;
+    const p = pos.current;
+    const v = vel.current;
+    const a = age.current;
+
+    for (let i = 0; i < 50; i++) {
+      a[i] += 0.016;
+      if (a[i] > 2.5) {
+        p[i * 3] = (Math.random() - 0.5) * 0.03;
+        p[i * 3 + 1] = burnY;
+        p[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
+        v[i * 3] = (Math.random() - 0.5) * 0.004;
+        v[i * 3 + 1] = 0.005 + Math.random() * 0.01;
+        v[i * 3 + 2] = (Math.random() - 0.5) * 0.004;
+        a[i] = 0;
+      }
+      v[i * 3] += (Math.random() - 0.5) * 0.0005;
+      p[i * 3] += v[i * 3];
+      p[i * 3 + 1] += v[i * 3 + 1];
+      p[i * 3 + 2] += v[i * 3 + 2];
+    }
+    ref.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions.current, 3]} count={40} />
+        <bufferAttribute attach="attributes-position" args={[pos.current, 3]} count={50} />
       </bufferGeometry>
       <pointsMaterial
-        color="#bbbbbb"
-        size={isInhaling ? 0.08 : 0.04}
+        color="#bbb"
+        size={isInhaling ? 0.06 : 0.03}
         transparent
-        opacity={opacity}
+        opacity={isInhaling ? 0.5 : 0.15}
         depthWrite={false}
         sizeAttenuation
       />
@@ -270,47 +494,45 @@ function SmokeParticles() {
   );
 }
 
-function VaporParticles() {
-  const particlesRef = useRef<THREE.Points>(null);
-  const positions = useRef(new Float32Array(25 * 3));
-  const velocities = useRef(new Float32Array(25 * 3));
+function VaporParticles3D() {
+  const ref = useRef<THREE.Points>(null);
+  const pos = useRef(new Float32Array(30 * 3));
+  const vel = useRef(new Float32Array(30 * 3));
 
   useMemo(() => {
-    for (let i = 0; i < 25; i++) {
-      positions.current[i * 3] = 0.7 + (Math.random() - 0.5) * 0.03;
-      positions.current[i * 3 + 1] = (Math.random() - 0.5) * 0.03;
-      positions.current[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
-      velocities.current[i * 3] = Math.random() * 0.01;
-      velocities.current[i * 3 + 1] = Math.random() * 0.02 + 0.005;
-      velocities.current[i * 3 + 2] = (Math.random() - 0.5) * 0.01;
+    for (let i = 0; i < 30; i++) {
+      pos.current[i * 3] = (Math.random() - 0.5) * 0.02;
+      pos.current[i * 3 + 1] = -0.1;
+      pos.current[i * 3 + 2] = (Math.random() - 0.5) * 0.02;
+      vel.current[i * 3] = (Math.random() - 0.5) * 0.006;
+      vel.current[i * 3 + 1] = -0.01 - Math.random() * 0.015;
+      vel.current[i * 3 + 2] = (Math.random() - 0.5) * 0.006;
     }
   }, []);
 
   useFrame(() => {
-    if (!particlesRef.current) return;
-    const pos = positions.current;
-    const vel = velocities.current;
-
-    for (let i = 0; i < 25; i++) {
-      pos[i * 3] += vel[i * 3];
-      pos[i * 3 + 1] += vel[i * 3 + 1];
-      pos[i * 3 + 2] += vel[i * 3 + 2];
-
-      if (pos[i * 3 + 1] > 1) {
-        pos[i * 3] = 0.7 + (Math.random() - 0.5) * 0.03;
-        pos[i * 3 + 1] = 0;
-        pos[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
+    if (!ref.current) return;
+    const p = pos.current;
+    const v = vel.current;
+    for (let i = 0; i < 30; i++) {
+      p[i * 3] += v[i * 3];
+      p[i * 3 + 1] += v[i * 3 + 1];
+      p[i * 3 + 2] += v[i * 3 + 2];
+      if (p[i * 3 + 1] < -1) {
+        p[i * 3] = (Math.random() - 0.5) * 0.02;
+        p[i * 3 + 1] = -0.1;
+        p[i * 3 + 2] = (Math.random() - 0.5) * 0.02;
       }
     }
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    ref.current.geometry.attributes.position.needsUpdate = true;
   });
 
   return (
-    <points ref={particlesRef}>
+    <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions.current, 3]} count={25} />
+        <bufferAttribute attach="attributes-position" args={[pos.current, 3]} count={30} />
       </bufferGeometry>
-      <pointsMaterial color="#fff" size={0.06} transparent opacity={0.6} depthWrite={false} sizeAttenuation />
+      <pointsMaterial color="#fff" size={0.05} transparent opacity={0.5} depthWrite={false} sizeAttenuation />
     </points>
   );
 }

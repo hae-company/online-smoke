@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSmoking } from "../providers/SmokingProvider";
 
 export default function SmokingStats() {
-  const { webcamReady, burnProgress, chainCount, startTime, isInhaling } = useSmoking();
+  const { webcamReady, burnProgress, chainCount, puffCount, startTime, isInhaling, phase, cigaretteType } = useSmoking();
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -21,28 +21,52 @@ export default function SmokingStats() {
   const sec = elapsed % 60;
 
   return (
-    <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 text-white/60 text-xs">
-      {/* Burn progress bar */}
-      <div className="flex items-center gap-2">
-        <span>남은 양</span>
-        <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-orange-400 transition-all duration-100"
-            style={{ width: `${(1 - burnProgress) * 100}%` }}
-          />
-        </div>
+    <>
+      {/* Top: cigarette count */}
+      <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 text-white">
+        <span className="text-2xl">{cigaretteType === "ecig" ? "💨" : "🚬"}</span>
+        <span className="text-lg font-light tracking-wider">
+          {chainCount + 1}개비째
+        </span>
+        <span className="text-white/40 text-sm">|</span>
+        <span className="text-sm text-white/60">{puffCount}모금</span>
       </div>
 
-      {/* Timer */}
-      <span>{min}:{sec.toString().padStart(2, "0")}</span>
+      {/* Bottom stats */}
+      <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-5 text-white/60 text-xs">
+        {phase === "smoking" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span>남은 양</span>
+              <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-100"
+                  style={{
+                    width: `${(1 - burnProgress) * 100}%`,
+                    backgroundColor: burnProgress > 0.8 ? "#ff6644" : "#66aaff",
+                  }}
+                />
+              </div>
+            </div>
+            <span>{min}:{sec.toString().padStart(2, "0")}</span>
+            {isInhaling && (
+              <span className="text-orange-400 animate-pulse">흡입 중</span>
+            )}
+          </>
+        )}
 
-      {/* Chain count */}
-      <span>{chainCount + 1}개비째</span>
+        {phase === "finished" && (
+          <span className="text-yellow-300 animate-pulse">
+            입을 다물고 1초 유지 → 새 담배 꺼내기
+          </span>
+        )}
 
-      {/* Inhaling indicator */}
-      {isInhaling && (
-        <span className="text-orange-400 animate-pulse">흡입 중</span>
-      )}
-    </div>
+        {phase === "pack" && (
+          <span className="text-green-300 animate-pulse">
+            입을 벌려서 담배를 물어보세요
+          </span>
+        )}
+      </div>
+    </>
   );
 }
