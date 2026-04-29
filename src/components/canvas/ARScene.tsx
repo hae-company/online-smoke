@@ -4,13 +4,13 @@ import { useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useSmoking } from "../providers/SmokingProvider";
 import Cigarette from "./Cigarette";
+import { MOUTH_LEFT, MOUTH_RIGHT, UPPER_LIP_TOP, LOWER_LIP_BOTTOM } from "@/lib/landmarks";
 
 export default function ARScene() {
-  const { webcamReady, videoRef } = useSmoking();
+  const { webcamReady, videoRef, landmarks } = useSmoking();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Draw webcam video to a canvas (mirrored)
   useEffect(() => {
     if (!webcamReady) return;
 
@@ -31,10 +31,9 @@ export default function ARScene() {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
 
-        // Cover the screen (maintain aspect ratio)
         const videoAspect = video.videoWidth / video.videoHeight;
         const screenAspect = canvas.width / canvas.height;
-        let drawW, drawH, drawX, drawY;
+        let drawW: number, drawH: number, drawX: number, drawY: number;
 
         if (screenAspect > videoAspect) {
           drawW = canvas.width;
@@ -50,25 +49,70 @@ export default function ARScene() {
 
         ctx.drawImage(video, drawX, drawY, drawW, drawH);
         ctx.restore();
+
+        // Debug: draw mouth landmarks
+        if (landmarks && landmarks.length > 0) {
+          const lm = landmarks;
+
+          // Helper: convert normalized landmark to screen pixel (mirrored)
+          const toScreen = (l: { x: number; y: number }) => ({
+            x: (1 - l.x) * canvas.width, // mirror x
+            y: l.y * canvas.height,
+          });
+
+          // Mouth corners
+          const mLeft = toScreen(lm[MOUTH_LEFT]);
+          const mRight = toScreen(lm[MOUTH_RIGHT]);
+          const mTop = toScreen(lm[UPPER_LIP_TOP]);
+          const mBottom = toScreen(lm[LOWER_LIP_BOTTOM]);
+
+          // Center of mouth
+          const cx = (mLeft.x + mRight.x) / 2;
+          const cy = (mTop.y + mBottom.y) / 2;
+
+          // Draw circle around mouth
+          const radius = Math.abs(mRight.x - mLeft.x) / 2 + 5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(0, 255, 100, 0.8)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Draw mouth corner dots
+          [mLeft, mRight, mTop, mBottom].forEach((pt) => {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 50, 50, 0.9)";
+            ctx.fill();
+          });
+
+          // Draw crosshair at center (where cigarette should attach)
+          ctx.beginPath();
+          ctx.moveTo(cx - 8, cy);
+          ctx.lineTo(cx + 8, cy);
+          ctx.moveTo(cx, cy - 8);
+          ctx.lineTo(cx, cy + 8);
+          ctx.strokeStyle = "rgba(255, 255, 0, 0.9)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
       }
       raf = requestAnimationFrame(draw);
     };
     draw();
 
     return () => cancelAnimationFrame(raf);
-  }, [webcamReady, videoRef]);
+  }, [webcamReady, videoRef, landmarks]);
 
   if (!webcamReady) return null;
 
   return (
     <div className="fixed inset-0">
-      {/* Webcam video layer */}
       <canvas
         ref={videoCanvasRef}
         className="absolute inset-0 w-full h-full"
       />
 
-      {/* 3D overlay layer (transparent) */}
       <Canvas
         ref={canvasRef}
         camera={{ position: [0, 0, 5], fov: 50 }}
