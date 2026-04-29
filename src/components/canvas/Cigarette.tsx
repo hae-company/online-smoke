@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useMemo, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSmoking } from "../providers/SmokingProvider";
 import {
@@ -63,24 +63,27 @@ function RegularCigarette3D() {
     return new THREE.LatheGeometry(pts, 24);
   }, [thick]);
 
+  const { viewport } = useThree();
+
   useFrame(() => {
     if (!groupRef.current || !landmarks) return;
 
-    const mouth = getMouthPosition(landmarks);
-    const x = -(mouth.x - 0.5) * 10;
-    const y = -(mouth.y - 0.5) * 7.5;
+    const aspect = viewport.width / viewport.height;
+    const mouth = getMouthPosition(landmarks, aspect);
 
-    groupRef.current.position.set(x, y, 0.5);
-    // Cigarette points outward from mouth, rotated along mouth angle
-    groupRef.current.rotation.set(0, 0, mouth.angle + 0.08);
+    groupRef.current.position.set(mouth.x, mouth.y, mouth.z);
+    // 3D rotation: face turn + mouth angle
+    groupRef.current.rotation.set(
+      mouth.faceRotX,       // nod up/down
+      mouth.faceRotY,       // turn left/right
+      mouth.angle + 0.08    // mouth tilt
+    );
 
-    // Count puffs: detect inhale start (transition from not inhaling to inhaling)
     if (isInhaling && !wasInhaling.current) {
       setPuffCount(puffCount + 1);
     }
     wasInhaling.current = isInhaling;
 
-    // Burn
     const burnRate = isInhaling ? CIGARETTE_BURN_PER_FRAME : IDLE_BURN;
     const newBurn = Math.min(1, burnProgress + burnRate);
     setBurnProgress(newBurn);
@@ -162,16 +165,16 @@ function ECigarette3D() {
   } = useSmoking();
 
   const eb = ecigBrand;
+  const { viewport } = useThree();
 
   useFrame(() => {
     if (!groupRef.current || !landmarks) return;
 
-    const mouth = getMouthPosition(landmarks);
-    const x = -(mouth.x - 0.5) * 10;
-    const y = -(mouth.y - 0.5) * 7.5;
+    const aspect = viewport.width / viewport.height;
+    const mouth = getMouthPosition(landmarks, aspect);
 
-    groupRef.current.position.set(x, y, 0.5);
-    groupRef.current.rotation.set(0, 0, mouth.angle + 0.05);
+    groupRef.current.position.set(mouth.x, mouth.y, mouth.z);
+    groupRef.current.rotation.set(mouth.faceRotX, mouth.faceRotY, mouth.angle + 0.05);
 
     if (isInhaling && !wasInhaling.current) {
       setPuffCount(puffCount + 1);
