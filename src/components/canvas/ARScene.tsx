@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useSmoking } from "../providers/SmokingProvider";
 import Cigarette from "./Cigarette";
@@ -10,6 +10,16 @@ export default function ARScene() {
   const { webcamReady, videoRef, landmarks } = useSmoking();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [showDebug, setShowDebug] = useState(true);
+
+  // Hide debug circles after 3 seconds of first face detection
+  const debugTimerStarted = useRef(false);
+  useEffect(() => {
+    if (landmarks && !debugTimerStarted.current) {
+      debugTimerStarted.current = true;
+      setTimeout(() => setShowDebug(false), 3000);
+    }
+  }, [landmarks]);
 
   useEffect(() => {
     if (!webcamReady) return;
@@ -26,7 +36,6 @@ export default function ARScene() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Mirror horizontally for selfie view
         ctx.save();
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
@@ -50,51 +59,35 @@ export default function ARScene() {
         ctx.drawImage(video, drawX, drawY, drawW, drawH);
         ctx.restore();
 
-        // Debug: draw mouth landmarks
-        if (landmarks && landmarks.length > 0) {
+        // Debug overlay — only first 3 seconds
+        if (showDebug && landmarks && landmarks.length > 0) {
           const lm = landmarks;
-
-          // Helper: convert normalized landmark to screen pixel (mirrored)
           const toScreen = (l: { x: number; y: number }) => ({
-            x: (1 - l.x) * canvas.width, // mirror x
+            x: (1 - l.x) * canvas.width,
             y: l.y * canvas.height,
           });
 
-          // Mouth corners
           const mLeft = toScreen(lm[MOUTH_LEFT]);
           const mRight = toScreen(lm[MOUTH_RIGHT]);
           const mTop = toScreen(lm[UPPER_LIP_TOP]);
           const mBottom = toScreen(lm[LOWER_LIP_BOTTOM]);
 
-          // Center of mouth
           const cx = (mLeft.x + mRight.x) / 2;
           const cy = (mTop.y + mBottom.y) / 2;
-
-          // Draw circle around mouth
           const radius = Math.abs(mRight.x - mLeft.x) / 2 + 5;
+
           ctx.beginPath();
           ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-          ctx.strokeStyle = "rgba(0, 255, 100, 0.8)";
+          ctx.strokeStyle = "rgba(0, 255, 100, 0.6)";
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Draw mouth corner dots
           [mLeft, mRight, mTop, mBottom].forEach((pt) => {
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255, 50, 50, 0.9)";
+            ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
             ctx.fill();
           });
-
-          // Draw crosshair at center (where cigarette should attach)
-          ctx.beginPath();
-          ctx.moveTo(cx - 8, cy);
-          ctx.lineTo(cx + 8, cy);
-          ctx.moveTo(cx, cy - 8);
-          ctx.lineTo(cx, cy + 8);
-          ctx.strokeStyle = "rgba(255, 255, 0, 0.9)";
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
         }
       }
       raf = requestAnimationFrame(draw);
@@ -102,27 +95,24 @@ export default function ARScene() {
     draw();
 
     return () => cancelAnimationFrame(raf);
-  }, [webcamReady, videoRef, landmarks]);
+  }, [webcamReady, videoRef, landmarks, showDebug]);
 
   if (!webcamReady) return null;
 
   return (
     <div className="fixed inset-0">
-      <canvas
-        ref={videoCanvasRef}
-        className="absolute inset-0 w-full h-full"
-      />
-
+      <canvas ref={videoCanvasRef} className="absolute inset-0 w-full h-full" />
       <Canvas
         ref={canvasRef}
         camera={{ position: [0, 0, 5], fov: 50 }}
         gl={{ alpha: true, antialias: true }}
+        dpr={[1, 2]}
         style={{ position: "absolute", inset: 0 }}
       >
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[3, 3, 5]} intensity={1.5} castShadow />
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[3, 3, 5]} intensity={1.8} />
         <pointLight position={[-2, 1, 4]} intensity={0.8} color="#ffddaa" />
-        <pointLight position={[0, -2, 3]} intensity={0.3} color="#aaccff" />
+        <pointLight position={[0, -2, 3]} intensity={0.4} color="#aaccff" />
         <Cigarette />
       </Canvas>
     </div>

@@ -5,10 +5,10 @@ export interface BrandConfig {
   id: string;
   name: string;
   packColor: string;
-  packColor2: string; // gradient or secondary
+  packColor2: string;
   packAccent: string;
   filterColor: string;
-  filterTip: string; // mouth-end color
+  filterTip: string;
   paperColor: string;
   bandColor: string;
   bandColor2: string;
@@ -24,7 +24,10 @@ export interface EcigBrandConfig {
   accentColor: string;
   ledColor: string;
   mouthpieceColor: string;
-  shape: "stick" | "pod" | "box";
+  shape: "pod" | "disposable" | "heated";
+  width: number;
+  height: number;
+  depth: number;
   flavor: string;
   metalness: number;
   roughness: number;
@@ -117,59 +120,88 @@ export const BRANDS: BrandConfig[] = [
   },
 ];
 
+// 요즘 유행하는 전자담배: 일회용 디스포저블, 팟 시스템, 궐련형
 export const ECIG_BRANDS: EcigBrandConfig[] = [
+  {
+    id: "elfba",
+    name: "엘프바",
+    bodyColor: "#e8b4f8",
+    bodyColor2: "#d48ce8",
+    accentColor: "#f0d0ff",
+    ledColor: "#ffffff",
+    mouthpieceColor: "#f5f5f5",
+    shape: "disposable",
+    width: 0.06,
+    height: 0.5,
+    depth: 0.025,
+    flavor: "일회용 디스포저블 5000모금",
+    metalness: 0.1,
+    roughness: 0.7,
+  },
+  {
+    id: "releks",
+    name: "리렉스",
+    bodyColor: "#1a1a1a",
+    bodyColor2: "#2a2a2a",
+    accentColor: "#ff4444",
+    ledColor: "#ff0000",
+    mouthpieceColor: "#111",
+    shape: "pod",
+    width: 0.055,
+    height: 0.45,
+    depth: 0.02,
+    flavor: "슬림 팟 시스템",
+    metalness: 0.8,
+    roughness: 0.1,
+  },
   {
     id: "icoss",
     name: "아이코쓰",
-    bodyColor: "#e8e0d0",
-    bodyColor2: "#d5cdc0",
+    bodyColor: "#d5cdc0",
+    bodyColor2: "#c0b8a8",
     accentColor: "#c9a84c",
     ledColor: "#ff8800",
-    mouthpieceColor: "#f5f0e8",
-    shape: "stick",
-    flavor: "히츠 스틱형",
+    mouthpieceColor: "#e8e0d0",
+    shape: "heated",
+    width: 0.045,
+    height: 0.55,
+    depth: 0.045,
+    flavor: "궐련형 가열식",
     metalness: 0.3,
-    roughness: 0.6,
+    roughness: 0.5,
   },
   {
     id: "lilli",
     name: "릴리",
-    bodyColor: "#1a1a2e",
-    bodyColor2: "#16213e",
+    bodyColor: "#f5f5f5",
+    bodyColor2: "#e0e0e0",
     accentColor: "#00bcd4",
     ledColor: "#00e5ff",
-    mouthpieceColor: "#333",
-    shape: "pod",
-    flavor: "미니 팟형",
-    metalness: 0.7,
-    roughness: 0.15,
+    mouthpieceColor: "#ddd",
+    shape: "heated",
+    width: 0.04,
+    height: 0.5,
+    depth: 0.04,
+    flavor: "궐련형 미니",
+    metalness: 0.4,
+    roughness: 0.4,
   },
-  {
-    id: "glory",
-    name: "글로리",
-    bodyColor: "#263238",
-    bodyColor2: "#37474f",
-    accentColor: "#ff6d00",
-    ledColor: "#ff9100",
-    mouthpieceColor: "#455a64",
-    shape: "box",
-    flavor: "인덕션 히팅",
-    metalness: 0.6,
-    roughness: 0.2,
-  },
-  {
-    id: "julie",
-    name: "줄리",
-    bodyColor: "#37474f",
-    bodyColor2: "#455a64",
-    accentColor: "#78909c",
-    ledColor: "#ffffff",
-    mouthpieceColor: "#546e7a",
-    shape: "stick",
-    flavor: "슬릭 팟 시스템",
-    metalness: 0.85,
-    roughness: 0.08,
-  },
+];
+
+export interface LiquidConfig {
+  id: string;
+  name: string;
+  color: string;
+  opacity: number;
+}
+
+export const LIQUIDS: LiquidConfig[] = [
+  { id: "grape", name: "포도 아이스", color: "#8833cc", opacity: 0.6 },
+  { id: "mango", name: "망고 스무디", color: "#ffaa22", opacity: 0.55 },
+  { id: "mint", name: "더블 민트", color: "#44ddaa", opacity: 0.5 },
+  { id: "tobacco", name: "클래식 타바코", color: "#886633", opacity: 0.65 },
+  { id: "strawberry", name: "딸기 크림", color: "#ff4466", opacity: 0.55 },
+  { id: "blueberry", name: "블루베리 블라스트", color: "#3355dd", opacity: 0.6 },
 ];
 
 export const INHALE_THRESHOLD = 0.08;

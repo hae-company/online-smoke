@@ -161,7 +161,7 @@ function ECigarette3D() {
   const wasInhaling = useRef(false);
   const {
     landmarks, isInhaling, burnProgress, setBurnProgress,
-    puffCount, setPuffCount, setPhase, ecigBrand,
+    puffCount, setPuffCount, setPhase, ecigBrand, liquid,
   } = useSmoking();
 
   const eb = ecigBrand;
@@ -193,129 +193,153 @@ function ECigarette3D() {
   return (
     <group ref={groupRef}>
       <group rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
-        {eb.shape === "stick" && <EcigStick eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
-        {eb.shape === "pod" && <EcigPod eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
-        {eb.shape === "box" && <EcigBox eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
+        {eb.shape === "disposable" && <EcigDisposable eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} liquidColor={liquid.color} liquidOpacity={liquid.opacity} />}
+        {eb.shape === "pod" && <EcigPodSystem eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} liquidColor={liquid.color} liquidOpacity={liquid.opacity} />}
+        {eb.shape === "heated" && <EcigHeated eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
       </group>
       {isInhaling && <VaporParticles3D />}
     </group>
   );
 }
 
-function EcigStick({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+// Disposable vape — 엘프바 스타일: 둥근 직사각형, 매트, 화려한 색
+function EcigDisposable({ eb, isInhaling, burnProgress, liquidColor, liquidOpacity }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number; liquidColor: string; liquidOpacity: number }) {
+  const w = eb.width;
+  const h = eb.height;
+  const d = eb.depth;
   return (
     <>
-      {/* Mouthpiece - flat tip */}
-      <mesh position={[0, -0.08, 0]}>
-        <cylinderGeometry args={[0.025, 0.03, 0.12, 16]} />
-        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.3} roughness={0.5} />
+      {/* Flat mouthpiece (duck-bill style) */}
+      <mesh position={[0, -0.04, 0]}>
+        <boxGeometry args={[w * 0.8, 0.06, d * 0.7]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} roughness={0.5} metalness={0.1} />
       </mesh>
-      {/* Upper body */}
-      <mesh position={[0, 0.15, 0]}>
-        <cylinderGeometry args={[0.032, 0.032, 0.35, 16]} />
-        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness} roughness={eb.roughness} />
+      {/* Main body — rounded rectangle feel */}
+      <mesh position={[0, h / 2, 0]}>
+        <boxGeometry args={[w, h, d]} />
+        <meshStandardMaterial color={eb.bodyColor} roughness={eb.roughness} metalness={eb.metalness} />
       </mesh>
-      {/* Accent ring */}
-      <mesh position={[0, -0.01, 0]}>
-        <cylinderGeometry args={[0.034, 0.034, 0.008, 16]} />
-        <meshStandardMaterial color={eb.accentColor} metalness={0.7} roughness={0.15} />
+      {/* Liquid color accent strip (shows flavor) */}
+      <mesh position={[0, h * 0.15, d / 2 + 0.001]}>
+        <boxGeometry args={[w * 0.95, h * 0.4, 0.001]} />
+        <meshStandardMaterial color={liquidColor} transparent opacity={0.6} roughness={0.8} />
       </mesh>
-      {/* Lower body (battery) */}
-      <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.033, 0.033, 0.35, 16]} />
-        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      {/* Bottom LED strip */}
+      <mesh position={[0, h - 0.02, d / 2 + 0.001]}>
+        <boxGeometry args={[w * 0.4, 0.015, 0.001]} />
+        <meshStandardMaterial
+          color={eb.ledColor}
+          emissive={eb.ledColor}
+          emissiveIntensity={isInhaling ? 4 : 0.3}
+        />
       </mesh>
-      {/* Bottom cap */}
-      <mesh position={[0, 0.68, 0]}>
-        <cylinderGeometry args={[0.034, 0.034, 0.01, 16]} />
-        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
+      {/* Airhole dots on front */}
+      <mesh position={[0, 0.02, d / 2 + 0.001]}>
+        <circleGeometry args={[0.005, 8]} />
+        <meshStandardMaterial color="#333" />
       </mesh>
-      {/* LED */}
-      <mesh position={[0, 0.675, 0]}>
-        <sphereGeometry args={[0.008, 8, 8]} />
-        <meshStandardMaterial color={eb.ledColor} emissive={eb.ledColor} emissiveIntensity={isInhaling ? 5 : 0.5} />
+      {/* USB-C port at bottom */}
+      <mesh position={[0, h + 0.005, 0]}>
+        <boxGeometry args={[0.02, 0.005, 0.008]} />
+        <meshStandardMaterial color="#333" metalness={0.5} roughness={0.3} />
       </mesh>
     </>
   );
 }
 
-function EcigPod({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+// Pod system — 리렉스 스타일: 얇고 납작, 메탈릭, 미니멀
+function EcigPodSystem({ eb, isInhaling, burnProgress, liquidColor, liquidOpacity }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number; liquidColor: string; liquidOpacity: number }) {
+  const w = eb.width;
+  const h = eb.height;
+  const d = eb.depth;
   return (
     <>
-      {/* Mouthpiece - slim flat */}
-      <mesh position={[0, -0.06, 0]}>
-        <boxGeometry args={[0.05, 0.1, 0.025]} />
-        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.4} roughness={0.4} />
+      {/* Flat mouthpiece */}
+      <mesh position={[0, -0.03, 0]}>
+        <boxGeometry args={[w * 0.6, 0.04, d * 0.5]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.6} roughness={0.2} />
       </mesh>
-      {/* Pod cartridge (translucent) */}
-      <mesh position={[0, 0.08, 0]}>
-        <boxGeometry args={[0.06, 0.18, 0.03]} />
-        <meshStandardMaterial color={eb.accentColor} transparent opacity={0.5} metalness={0.2} roughness={0.3} />
+      {/* Pod cartridge — visible liquid window */}
+      <mesh position={[0, 0.06, 0]}>
+        <boxGeometry args={[w * 0.85, 0.1, d * 0.8]} />
+        <meshStandardMaterial color={liquidColor} transparent opacity={liquidOpacity} roughness={0.2} />
       </mesh>
-      {/* Main body */}
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[0.065, 0.4, 0.035]} />
+      {/* Main body — slim metal */}
+      <mesh position={[0, h / 2 + 0.05, 0]}>
+        <boxGeometry args={[w, h * 0.7, d]} />
         <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness} roughness={eb.roughness} />
       </mesh>
-      {/* Rounded bottom */}
-      <mesh position={[0, 0.56, 0]}>
-        <sphereGeometry args={[0.033, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      {/* Logo area (subtle lighter rectangle) */}
+      <mesh position={[0, h * 0.35, d / 2 + 0.001]}>
+        <boxGeometry args={[w * 0.5, h * 0.15, 0.001]} />
+        <meshStandardMaterial color={eb.bodyColor2} metalness={0.6} roughness={0.15} />
       </mesh>
-      {/* LED strip */}
-      <mesh position={[0, 0.2, 0.019]}>
-        <boxGeometry args={[0.03, 0.06 * (1 - burnProgress), 0.002]} />
-        <meshStandardMaterial color={eb.ledColor} emissive={eb.ledColor} emissiveIntensity={isInhaling ? 4 : 0.8} />
-      </mesh>
-    </>
-  );
-}
-
-function EcigBox({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
-  return (
-    <>
-      {/* Mouthpiece - cylindrical */}
-      <mesh position={[0, -0.06, 0]}>
-        <cylinderGeometry args={[0.02, 0.025, 0.1, 12]} />
-        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.3} roughness={0.5} />
-      </mesh>
-      {/* Heating chamber top */}
-      <mesh position={[0, 0.05, 0]}>
-        <cylinderGeometry args={[0.035, 0.04, 0.12, 16]} />
-        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness + 0.1} roughness={eb.roughness} />
-      </mesh>
-      {/* Accent divider */}
-      <mesh position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[0.042, 0.042, 0.008, 16]} />
-        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
-      </mesh>
-      {/* Main body box */}
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[0.08, 0.4, 0.045]} />
-        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
-      </mesh>
-      {/* Bottom cap */}
-      <mesh position={[0, 0.56, 0]}>
-        <boxGeometry args={[0.082, 0.01, 0.047]} />
-        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
-      </mesh>
-      {/* LED circle */}
-      <mesh position={[0, 0.18, 0.024]}>
-        <circleGeometry args={[0.015, 16]} />
+      {/* LED indicator dot */}
+      <mesh position={[0, h * 0.7, d / 2 + 0.001]}>
+        <circleGeometry args={[0.006, 12]} />
         <meshStandardMaterial
           color={eb.ledColor}
           emissive={eb.ledColor}
           emissiveIntensity={isInhaling ? 5 : 0.5}
         />
       </mesh>
-      {/* Battery bar */}
-      <mesh position={[0, 0.45, 0.024]}>
-        <boxGeometry args={[0.04, 0.1 * (1 - burnProgress), 0.002]} />
+    </>
+  );
+}
+
+// Heated tobacco — 아이코쓰/릴리 스타일: 원통형 본체 + 스틱 삽입구
+function EcigHeated({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+  const r = eb.width / 2;
+  const h = eb.height;
+  return (
+    <>
+      {/* Cap / mouthpiece area (where stick inserts) */}
+      <mesh position={[0, -0.05, 0]}>
+        <cylinderGeometry args={[r * 0.9, r, 0.08, 20]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.3} roughness={0.5} />
+      </mesh>
+      {/* Stick hole */}
+      <mesh position={[0, -0.09, 0]}>
+        <cylinderGeometry args={[r * 0.4, r * 0.4, 0.01, 12]} />
+        <meshStandardMaterial color="#222" />
+      </mesh>
+      {/* Upper body */}
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[r, r, 0.25, 20]} />
+        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Accent line */}
+      <mesh position={[0, 0.0, 0]}>
+        <cylinderGeometry args={[r * 1.02, r * 1.02, 0.006, 20]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.7} roughness={0.15} />
+      </mesh>
+      {/* Lower body (battery) */}
+      <mesh position={[0, 0.38, 0]}>
+        <cylinderGeometry args={[r, r * 0.98, 0.28, 20]} />
+        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Button */}
+      <mesh position={[0, 0.25, r + 0.001]}>
+        <circleGeometry args={[r * 0.3, 16]} />
         <meshStandardMaterial
-          color={burnProgress > 0.8 ? "#ff3333" : eb.ledColor}
-          emissive={burnProgress > 0.8 ? "#ff3333" : eb.ledColor}
-          emissiveIntensity={0.5}
+          color={eb.accentColor}
+          metalness={0.5}
+          roughness={0.3}
         />
+      </mesh>
+      {/* LED ring around button */}
+      <mesh position={[0, 0.25, r + 0.002]}>
+        <ringGeometry args={[r * 0.3, r * 0.38, 20]} />
+        <meshStandardMaterial
+          color={eb.ledColor}
+          emissive={eb.ledColor}
+          emissiveIntensity={isInhaling ? 4 : 0.5}
+        />
+      </mesh>
+      {/* Bottom cap */}
+      <mesh position={[0, 0.53, 0]}>
+        <cylinderGeometry args={[r * 1.01, r * 1.01, 0.008, 20]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
       </mesh>
     </>
   );

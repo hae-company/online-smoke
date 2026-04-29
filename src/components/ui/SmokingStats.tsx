@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSmoking } from "../providers/SmokingProvider";
 
 export default function SmokingStats() {
-  const { webcamReady, burnProgress, chainCount, puffCount, startTime, isInhaling, phase, cigaretteType, brand, ecigBrand } = useSmoking();
+  const { webcamReady, burnProgress, chainCount, puffCount, startTime, isInhaling, phase, cigaretteType, brand, ecigBrand, liquid } = useSmoking();
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -30,6 +30,15 @@ export default function SmokingStats() {
         </span>
         <span className="text-white/40 text-sm">|</span>
         <span className="text-sm text-white/60">{puffCount}모금</span>
+        {cigaretteType === "ecig" && ecigBrand.shape !== "heated" && (
+          <>
+            <span className="text-white/40 text-sm">|</span>
+            <span className="text-xs text-white/50 flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: liquid.color }} />
+              {liquid.name}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Bottom stats */}
