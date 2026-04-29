@@ -39,14 +39,25 @@ export function getMouthPosition(landmarks: FaceLandmark[]): {
 } {
   const left = landmarks[MOUTH_LEFT];
   const right = landmarks[MOUTH_RIGHT];
+  const upperLip = landmarks[UPPER_LIP_TOP];
+  const lowerLip = landmarks[LOWER_LIP_BOTTOM];
 
-  // Cigarette goes at the right corner of the mouth
-  const x = right.x;
-  const y = right.y;
-  const z = right.z;
+  // Lips center point (between upper and lower lip at mouth center)
+  const centerX = (upperLip.x + lowerLip.x) / 2;
+  const centerY = (upperLip.y + lowerLip.y) / 2;
+  const centerZ = (upperLip.z + lowerLip.z) / 2;
 
   // Angle of the mouth line
   const angle = Math.atan2(right.y - left.y, right.x - left.x);
 
-  return { x, y, z, angle };
+  // Offset slightly toward the right corner from center (cigarette hangs from side of lips)
+  const offsetX = (right.x - centerX) * 0.5;
+  const offsetY = (right.y - centerY) * 0.5;
+
+  return {
+    x: centerX + offsetX,
+    y: centerY + offsetY,
+    z: centerZ,
+    angle,
+  };
 }
