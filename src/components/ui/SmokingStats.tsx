@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSmoking } from "../providers/SmokingProvider";
 
 export default function SmokingStats() {
-  const { webcamReady, burnProgress, chainCount, puffCount, startTime, isInhaling, phase, cigaretteType, brand } = useSmoking();
+  const { webcamReady, burnProgress, chainCount, puffCount, startTime, isInhaling, phase, cigaretteType, brand, ecigBrand } = useSmoking();
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function SmokingStats() {
       <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 text-white">
         <span className="text-2xl">{cigaretteType === "ecig" ? "💨" : "🚬"}</span>
         <span className="text-lg font-light tracking-wider">
-          {cigaretteType === "ecig" ? "전자담배" : brand.name} · {chainCount + 1}개비째
+          {cigaretteType === "ecig" ? ecigBrand.name : brand.name} · {chainCount + 1}개비째
         </span>
         <span className="text-white/40 text-sm">|</span>
         <span className="text-sm text-white/60">{puffCount}모금</span>

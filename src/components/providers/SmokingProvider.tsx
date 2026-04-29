@@ -1,34 +1,32 @@
 "use client";
 
 import { createContext, useContext, useState, useRef, type ReactNode } from "react";
-import type { CigaretteType, SmokingPhase, BrandConfig } from "@/lib/constants";
-import { BRANDS } from "@/lib/constants";
+import type { CigaretteType, SmokingPhase, BrandConfig, EcigBrandConfig } from "@/lib/constants";
+import { BRANDS, ECIG_BRANDS } from "@/lib/constants";
 import type { FaceLandmark } from "@/lib/landmarks";
 
 interface SmokingState {
   webcamReady: boolean;
   setWebcamReady: (v: boolean) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
-
   landmarks: FaceLandmark[] | null;
   setLandmarks: (l: FaceLandmark[] | null) => void;
   isInhaling: boolean;
   setIsInhaling: (v: boolean) => void;
-
   cigaretteType: CigaretteType;
   setCigaretteType: (t: CigaretteType) => void;
   brand: BrandConfig;
   setBrand: (b: BrandConfig) => void;
+  ecigBrand: EcigBrandConfig;
+  setEcigBrand: (b: EcigBrandConfig) => void;
   burnProgress: number;
   setBurnProgress: (p: number) => void;
   chainCount: number;
   setChainCount: (c: number) => void;
   puffCount: number;
   setPuffCount: (n: number) => void;
-
   phase: SmokingPhase;
   setPhase: (p: SmokingPhase) => void;
-
   startTime: number | null;
   setStartTime: (t: number | null) => void;
 }
@@ -42,6 +40,7 @@ export function SmokingProvider({ children }: { children: ReactNode }) {
   const [isInhaling, setIsInhaling] = useState(false);
   const [cigaretteType, setCigaretteType] = useState<CigaretteType>("regular");
   const [brand, setBrand] = useState<BrandConfig>(BRANDS[0]);
+  const [ecigBrand, setEcigBrand] = useState<EcigBrandConfig>(ECIG_BRANDS[0]);
   const [burnProgress, setBurnProgress] = useState(0);
   const [chainCount, setChainCount] = useState(0);
   const [puffCount, setPuffCount] = useState(0);
@@ -54,7 +53,7 @@ export function SmokingProvider({ children }: { children: ReactNode }) {
         webcamReady, setWebcamReady, videoRef,
         landmarks, setLandmarks, isInhaling, setIsInhaling,
         cigaretteType, setCigaretteType,
-        brand, setBrand,
+        brand, setBrand, ecigBrand, setEcigBrand,
         burnProgress, setBurnProgress,
         chainCount, setChainCount,
         puffCount, setPuffCount,

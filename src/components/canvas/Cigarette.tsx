@@ -8,6 +8,7 @@ import {
   CIGARETTE_BURN_PER_FRAME,
   ECIG_BURN_PER_FRAME,
   IDLE_BURN,
+  type EcigBrandConfig,
 } from "@/lib/constants";
 import { getMouthPosition, calculateMAR } from "@/lib/landmarks";
 
@@ -150,15 +151,17 @@ function RegularCigarette3D() {
 }
 
 // ============================================
-// E-CIGARETTE — sleek 3D stick
+// E-CIGARETTE — brand-specific 3D shapes
 // ============================================
 function ECigarette3D() {
   const groupRef = useRef<THREE.Group>(null);
   const wasInhaling = useRef(false);
   const {
     landmarks, isInhaling, burnProgress, setBurnProgress,
-    puffCount, setPuffCount, setPhase,
+    puffCount, setPuffCount, setPhase, ecigBrand,
   } = useSmoking();
+
+  const eb = ecigBrand;
 
   useFrame(() => {
     if (!groupRef.current || !landmarks) return;
@@ -187,43 +190,131 @@ function ECigarette3D() {
   return (
     <group ref={groupRef}>
       <group rotation={[Math.PI / 2, 0, -Math.PI / 2]}>
-        {/* Mouthpiece */}
-        <mesh position={[0, -0.05, 0]}>
-          <cylinderGeometry args={[0.03, 0.035, 0.15, 16]} />
-          <meshStandardMaterial color="#444" metalness={0.4} roughness={0.3} />
-        </mesh>
-        {/* Main body */}
-        <mesh position={[0, 0.35, 0]}>
-          <boxGeometry args={[0.09, 0.65, 0.06]} />
-          <meshStandardMaterial color="#1a1a1a" metalness={0.7} roughness={0.15} />
-        </mesh>
-        {/* Chrome accent ring */}
-        <mesh position={[0, 0.03, 0]}>
-          <cylinderGeometry args={[0.048, 0.048, 0.01, 16]} />
-          <meshStandardMaterial color="#ccc" metalness={0.9} roughness={0.1} />
-        </mesh>
-        {/* LED */}
-        <mesh position={[0, 0.67, 0.035]}>
-          <sphereGeometry args={[0.012, 8, 8]} />
-          <meshStandardMaterial
-            color="#00aaff"
-            emissive="#00aaff"
-            emissiveIntensity={isInhaling ? 6 : 1}
-          />
-        </mesh>
-        {/* Battery indicator bar */}
-        <mesh position={[0, 0.5, 0.031]}>
-          <boxGeometry args={[0.04, 0.15 * (1 - burnProgress), 0.002]} />
-          <meshStandardMaterial
-            color={burnProgress > 0.8 ? "#ff3333" : "#00ff88"}
-            emissive={burnProgress > 0.8 ? "#ff3333" : "#00ff88"}
-            emissiveIntensity={0.5}
-          />
-        </mesh>
+        {eb.shape === "stick" && <EcigStick eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
+        {eb.shape === "pod" && <EcigPod eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
+        {eb.shape === "box" && <EcigBox eb={eb} isInhaling={isInhaling} burnProgress={burnProgress} />}
       </group>
-
       {isInhaling && <VaporParticles3D />}
     </group>
+  );
+}
+
+function EcigStick({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+  return (
+    <>
+      {/* Mouthpiece - flat tip */}
+      <mesh position={[0, -0.08, 0]}>
+        <cylinderGeometry args={[0.025, 0.03, 0.12, 16]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.3} roughness={0.5} />
+      </mesh>
+      {/* Upper body */}
+      <mesh position={[0, 0.15, 0]}>
+        <cylinderGeometry args={[0.032, 0.032, 0.35, 16]} />
+        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Accent ring */}
+      <mesh position={[0, -0.01, 0]}>
+        <cylinderGeometry args={[0.034, 0.034, 0.008, 16]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.7} roughness={0.15} />
+      </mesh>
+      {/* Lower body (battery) */}
+      <mesh position={[0, 0.5, 0]}>
+        <cylinderGeometry args={[0.033, 0.033, 0.35, 16]} />
+        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Bottom cap */}
+      <mesh position={[0, 0.68, 0]}>
+        <cylinderGeometry args={[0.034, 0.034, 0.01, 16]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
+      </mesh>
+      {/* LED */}
+      <mesh position={[0, 0.675, 0]}>
+        <sphereGeometry args={[0.008, 8, 8]} />
+        <meshStandardMaterial color={eb.ledColor} emissive={eb.ledColor} emissiveIntensity={isInhaling ? 5 : 0.5} />
+      </mesh>
+    </>
+  );
+}
+
+function EcigPod({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+  return (
+    <>
+      {/* Mouthpiece - slim flat */}
+      <mesh position={[0, -0.06, 0]}>
+        <boxGeometry args={[0.05, 0.1, 0.025]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.4} roughness={0.4} />
+      </mesh>
+      {/* Pod cartridge (translucent) */}
+      <mesh position={[0, 0.08, 0]}>
+        <boxGeometry args={[0.06, 0.18, 0.03]} />
+        <meshStandardMaterial color={eb.accentColor} transparent opacity={0.5} metalness={0.2} roughness={0.3} />
+      </mesh>
+      {/* Main body */}
+      <mesh position={[0, 0.35, 0]}>
+        <boxGeometry args={[0.065, 0.4, 0.035]} />
+        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Rounded bottom */}
+      <mesh position={[0, 0.56, 0]}>
+        <sphereGeometry args={[0.033, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* LED strip */}
+      <mesh position={[0, 0.2, 0.019]}>
+        <boxGeometry args={[0.03, 0.06 * (1 - burnProgress), 0.002]} />
+        <meshStandardMaterial color={eb.ledColor} emissive={eb.ledColor} emissiveIntensity={isInhaling ? 4 : 0.8} />
+      </mesh>
+    </>
+  );
+}
+
+function EcigBox({ eb, isInhaling, burnProgress }: { eb: EcigBrandConfig; isInhaling: boolean; burnProgress: number }) {
+  return (
+    <>
+      {/* Mouthpiece - cylindrical */}
+      <mesh position={[0, -0.06, 0]}>
+        <cylinderGeometry args={[0.02, 0.025, 0.1, 12]} />
+        <meshStandardMaterial color={eb.mouthpieceColor} metalness={0.3} roughness={0.5} />
+      </mesh>
+      {/* Heating chamber top */}
+      <mesh position={[0, 0.05, 0]}>
+        <cylinderGeometry args={[0.035, 0.04, 0.12, 16]} />
+        <meshStandardMaterial color={eb.bodyColor} metalness={eb.metalness + 0.1} roughness={eb.roughness} />
+      </mesh>
+      {/* Accent divider */}
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.042, 0.042, 0.008, 16]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
+      </mesh>
+      {/* Main body box */}
+      <mesh position={[0, 0.35, 0]}>
+        <boxGeometry args={[0.08, 0.4, 0.045]} />
+        <meshStandardMaterial color={eb.bodyColor2} metalness={eb.metalness} roughness={eb.roughness} />
+      </mesh>
+      {/* Bottom cap */}
+      <mesh position={[0, 0.56, 0]}>
+        <boxGeometry args={[0.082, 0.01, 0.047]} />
+        <meshStandardMaterial color={eb.accentColor} metalness={0.8} roughness={0.1} />
+      </mesh>
+      {/* LED circle */}
+      <mesh position={[0, 0.18, 0.024]}>
+        <circleGeometry args={[0.015, 16]} />
+        <meshStandardMaterial
+          color={eb.ledColor}
+          emissive={eb.ledColor}
+          emissiveIntensity={isInhaling ? 5 : 0.5}
+        />
+      </mesh>
+      {/* Battery bar */}
+      <mesh position={[0, 0.45, 0.024]}>
+        <boxGeometry args={[0.04, 0.1 * (1 - burnProgress), 0.002]} />
+        <meshStandardMaterial
+          color={burnProgress > 0.8 ? "#ff3333" : eb.ledColor}
+          emissive={burnProgress > 0.8 ? "#ff3333" : eb.ledColor}
+          emissiveIntensity={0.5}
+        />
+      </mesh>
+    </>
   );
 }
 
